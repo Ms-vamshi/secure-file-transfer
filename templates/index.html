@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure File Transfer via QR Code</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Secure File Transfer via QR Code</h1>
+        
+        <!-- Upload Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold mb-4">Upload File</h2>
+            <form id="uploadForm" class="space-y-4">
+                <!-- Simple File Input -->
+                <div class="text-center p-6 border-2 border-dashed border-gray-300 rounded-lg">
+                    <input type="file" id="fileInput" class="w-full" />
+                    <p id="selectedFile" class="mt-2 text-sm text-gray-600"></p>
+                </div>
+
+                <!-- Upload Status -->
+                <div id="uploadStatus" class="text-center hidden">
+                    <div class="inline-block px-4 py-2 rounded-lg">
+                        <p id="statusText" class="text-sm"></p>
+                    </div>
+                </div>
+
+                <button type="submit" id="uploadButton" class="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200">
+                    Upload File
+                </button>
+            </form>
+        </div>
+
+        <!-- QR Code Section -->
+        <div id="qrSection" class="bg-white rounded-lg shadow-md p-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">Your QR Code</h2>
+            <div class="text-center">
+                <img id="qrCode" class="mx-auto mb-4" alt="QR Code" />
+                <p class="text-sm text-gray-600 mb-4">Scan this QR code to download the file</p>
+                <p class="text-sm text-red-600">Note: The file will be available for 20 minutes only</p>
+                <a id="downloadLink" href="#" class="text-blue-500 hover:text-blue-600 mt-4 inline-block">
+                    Or click here to download directly
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadForm = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFile = document.getElementById('selectedFile');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const statusText = document.getElementById('statusText');
+        const uploadButton = document.getElementById('uploadButton');
+
+        // Show selected filename
+        fileInput.addEventListener('change', function() {
+            if (this.files[0]) {
+                selectedFile.textContent = `Selected: ${this.files[0].name}`;
+            }
+        });
+
+        // Handle form submission
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+
+            // Show uploading status
+            uploadButton.disabled = true;
+            uploadStatus.classList.remove('hidden');
+            statusText.textContent = 'Uploading...';
+            statusText.className = 'text-blue-500';
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Show success
+                    statusText.textContent = 'Upload successful!';
+                    statusText.className = 'text-green-500';
+
+                    // Display QR code
+                    document.getElementById('qrCode').src = `data:image/png;base64,${data.qr_code}`;
+                    document.getElementById('downloadLink').href = data.download_url;
+                    document.getElementById('qrSection').classList.remove('hidden');
+
+                    // Reset form after success
+                    setTimeout(() => {
+                        uploadForm.reset();
+                        selectedFile.textContent = '';
+                        uploadStatus.classList.add('hidden');
+                        uploadButton.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            } catch (error) {
+                // Show error
+                statusText.textContent = `Error: ${error.message}`;
+                statusText.className = 'text-red-500';
+                uploadButton.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html> 
