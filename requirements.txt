@@ -1,0 +1,9 @@
+ Flask
+ boto3
+ python-dotenv
+ requests
+ cryptography
+ qrcode[pil]
+ Pillow
+ gunicorn
+

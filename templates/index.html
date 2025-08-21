@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure File Transfer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>🔒 Secure File Transfer</h1>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="upload-section">
+                <form id="uploadForm" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+                    <div id="dropZone" class="drop-zone">
+                        <div class="drop-zone-content">
+                            <div class="drop-zone-icon">📁</div>
+                            <h3>Drop your file here</h3>
+                            <p>or click to browse</p>
+                            <div class="file-info">
+                                <span class="max-size">Maximum file size: 2GB</span>
+                            </div>
+                        </div>
+                        <input id="fileInput" type="file" name="file" hidden />
+                    </div>
+                    
+                    <div class="upload-controls">
+                        <div class="expiry-control">
+                            <label for="expiry">Link expires in:</label>
+                            <select id="expiry" name="expiry">
+                                <option value="600" {% if default_expiry == 600 %}selected{% endif %}>10 minutes</option>
+                                <option value="1800" {% if default_expiry == 1800 %}selected{% endif %}>30 minutes</option>
+                                <option value="3600" {% if default_expiry == 3600 %}selected{% endif %}>1 hour</option>
+                                <option value="7200" {% if default_expiry == 7200 %}selected{% endif %}>2 hours</option>
+                                <option value="86400" {% if default_expiry == 86400 %}selected{% endif %}>24 hours</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="upload-btn">
+                            <span class="btn-text">Upload & Generate QR Code</span>
+                            <span class="btn-loading" hidden>Uploading...</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="progress" class="progress" aria-live="polite" aria-atomic="true" hidden>
+                <div class="progress-steps">
+                    <div class="step" id="step-upload">
+                        <div class="step-icon">📤</div>
+                        <div class="step-text">Uploading file...</div>
+                    </div>
+                    <div class="step" id="step-encrypt">
+                        <div class="step-icon">🔐</div>
+                        <div class="step-text">Encrypting...</div>
+                    </div>
+                    <div class="step" id="step-s3">
+                        <div class="step-icon">☁️</div>
+                        <div class="step-text">Uploading to cloud...</div>
+                    </div>
+                    <div class="step" id="step-qr">
+                        <div class="step-icon">📱</div>
+                        <div class="step-text">Generating QR code...</div>
+                    </div>
+                    <div class="step" id="step-ready">
+                        <div class="step-icon">✅</div>
+                        <div class="step-text">Ready!</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="error" class="error" hidden></div>
+        </div>
+    </main>
+
+    <script>
+    (function() {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const form = document.getElementById('uploadForm');
+        const progress = document.getElementById('progress');
+        const errorBox = document.getElementById('error');
+        const uploadBtn = document.querySelector('.upload-btn');
+        const btnText = document.querySelector('.btn-text');
+        const btnLoading = document.querySelector('.btn-loading');
+
+        function showProgress() {
+            progress.hidden = false;
+            uploadBtn.disabled = true;
+            btnText.hidden = true;
+            btnLoading.hidden = false;
+            setActive('step-upload');
+        }
+
+        function setActive(stepId) {
+            const steps = ['step-upload','step-encrypt','step-s3','step-qr','step-ready'];
+            steps.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.classList.toggle('active', id === stepId);
+                    el.classList.toggle('completed', steps.indexOf(id) < steps.indexOf(stepId));
+                }
+            });
+        }
+
+        function updateDropZoneText(file) {
+            const content = dropZone.querySelector('.drop-zone-content');
+            const title = content.querySelector('h3');
+            const subtitle = content.querySelector('p');
+            
+            if (file) {
+                title.textContent = file.name;
+                subtitle.textContent = `${(file.size / (1024 * 1024)).toFixed(1)} MB`;
+            } else {
+                title.textContent = 'Drop your file here';
+                subtitle.textContent = 'or click to browse';
+            }
+        }
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', e => { 
+            e.preventDefault(); 
+            dropZone.classList.add('hover'); 
+        });
+        
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('hover'));
+        
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('hover');
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                fileInput.files = e.dataTransfer.files;
+                updateDropZoneText(e.dataTransfer.files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                updateDropZoneText(e.target.files[0]);
+            }
+        });
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            errorBox.hidden = true;
+            if (!fileInput.files || !fileInput.files[0]) {
+                errorBox.textContent = 'Please choose a file to upload.';
+                errorBox.hidden = false;
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const maxSize = 2 * 1024 * 1024 * 1024; // 2GB
+            if (file.size > maxSize) {
+                errorBox.textContent = 'File size exceeds 2GB limit.';
+                errorBox.hidden = false;
+                return;
+            }
+
+            showProgress();
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', form.action, true);
+            xhr.responseType = 'document';
+
+            xhr.upload.addEventListener('loadstart', () => setActive('step-upload'));
+            xhr.upload.addEventListener('progress', () => setActive('step-upload'));
+            xhr.upload.addEventListener('load', () => setActive('step-encrypt'));
+            xhr.addEventListener('readystatechange', () => {
+                if (xhr.readyState === 2) setActive('step-s3');
+            });
+            xhr.addEventListener('load', () => {
+                setActive('step-ready');
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    // Replace document with result page
+                    const doc = xhr.response;
+                    document.open();
+                    document.write(doc.documentElement.outerHTML);
+                    document.close();
+                } else {
+                    errorBox.textContent = xhr.statusText || 'Upload failed. Please try again.';
+                    errorBox.hidden = false;
+                    uploadBtn.disabled = false;
+                    btnText.hidden = false;
+                    btnLoading.hidden = true;
+                }
+            });
+            xhr.addEventListener('error', () => {
+                errorBox.textContent = 'Network error. Please check your connection and try again.';
+                errorBox.hidden = false;
+                uploadBtn.disabled = false;
+                btnText.hidden = false;
+                btnLoading.hidden = true;
+            });
+
+            const data = new FormData();
+            data.append('file', file);
+            data.append('expiry', document.getElementById('expiry').value || '{{ default_expiry }}');
+            xhr.send(data);
+        });
+    })();
+    </script>
+</body>
+</html>
+

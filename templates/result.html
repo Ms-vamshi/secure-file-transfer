@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure File Transfer - QR Ready</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>🔒 Secure File Transfer</h1>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <div class="result-section">
+                <div class="success-message">
+                    <div class="success-icon">✅</div>
+                    <h2>File Uploaded Successfully!</h2>
+                    <p class="filename">{{ filename }}</p>
+                    <p class="expiry-note">Link expires in {{ expiry_seconds // 60 }} minutes</p>
+                </div>
+
+                <div class="qr-section">
+                    <div class="qr-container">
+                        <img src="{{ qr_image_url }}" alt="QR Code for file download" class="qr-code" />
+                    </div>
+                    
+                    <div class="download-section">
+                        <p class="download-text">Or click here to download:</p>
+                        <a href="{{ decrypt_link }}" class="download-link" target="_blank" rel="noopener">
+                            Download File
+                        </a>
+                    </div>
+                </div>
+
+                <div class="actions-section">
+                    <a href="{{ url_for('index') }}" class="btn-secondary">
+                        Upload Another File
+                    </a>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
+

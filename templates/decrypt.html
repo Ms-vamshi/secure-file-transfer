@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Decrypting...</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <meta http-equiv="refresh" content="2;url={{ redirect_url }}" />
+</head>
+<body>
+    <header class="header">
+        <div class="header-content">
+            <h1>🔐 Decrypting File</h1>
+        </div>
+    </header>
+    <main class="main-content">
+        <div class="container" style="text-align:center;">
+            <p>Applying AES-256-GCM with secure key management...</p>
+            <p>Validating integrity and preparing download for <strong>{{ filename }}</strong>...</p>
+            <p>You will be redirected shortly.</p>
+        </div>
+    </main>
+</body>
+</html>
+
+
+
