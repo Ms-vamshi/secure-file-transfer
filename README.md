@@ -47,11 +47,9 @@ PUBLIC_URL=http://localhost:5000
 
 3. **Set up public access (for mobile QR codes):**
 ```bash
-# Option A: Use ngrok for public access (recommended)
-python setup_ngrok.py
 
-# Option B: Use localhost (mobile must be on same network)
-# Skip this step and use localhost directly
+python app.py
+
 ```
 
 4. **Run the server:**
