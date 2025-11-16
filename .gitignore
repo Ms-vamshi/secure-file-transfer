@@ -1,4 +1,31 @@
-.venv/
+# ---- Python ----
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.db
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+Lib/
+Scripts/
+pyvenv.cfg
+
+# ---- Environment Variables ----
 .env
+
+# ---- IDE / Editors ----
+.vscode/
+.idea/
+
+# ---- OS Files ----
+.DS_Store
+
+# ---- Logs ----
+*.log
+
+# ---- Project Specific ----
+uploads/
