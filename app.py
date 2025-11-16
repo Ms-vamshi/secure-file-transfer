@@ -21,11 +21,7 @@ AWS_BUCKET = os.getenv('AWS_BUCKET')
 DEFAULT_EXPIRY = int(os.getenv('PRESIGN_EXPIRY_SECONDS', '600'))
 DELETE_TOKEN = os.getenv('DELETE_TOKEN', '')
 
-# For mobile QR code access - you can set this to your public URL
-# Options:
-# 1. Use ngrok: https://your-ngrok-url.ngrok.io
-# 2. Use your public domain: https://your-domain.com
-# 3. Use localhost (only works if mobile is on same network)
+
 PUBLIC_URL = os.getenv('PUBLIC_URL', 'http://localhost:5000')
 
 os.makedirs('static/qr', exist_ok=True)
@@ -64,10 +60,7 @@ def index():
 
 @app.post("/upload")
 def upload():
-    """
-    Handle file upload, S3 storage, and QR code generation.
-    This creates a complete secure file transfer workflow.
-    """
+    
     file = request.files.get('file')
     expiry = request.form.get('expiry', type=int) or DEFAULT_EXPIRY
     expiry = max(60, min(604800, expiry))  # 1 minute to 7 days
@@ -81,13 +74,13 @@ def upload():
     if not original_filename:
         abort(400, description="Invalid filename")
 
-    # Step 1: Save plaintext to a temporary file (no real encryption)
+    
     suffix = os.path.splitext(original_filename)[1] or ''
     plaintext_tmp_fd, plaintext_tmp_path = tempfile.mkstemp(dir='tmp', suffix=suffix)
     os.close(plaintext_tmp_fd)
 
     try:
-        # Copy upload stream to temp file without persisting in memory
+        
         with file.stream as in_stream, open(plaintext_tmp_path, 'wb') as out:
             while True:
                 chunk = in_stream.read(4 * 1024 * 1024)
@@ -148,14 +141,7 @@ def upload():
             pass
 
 
-@app.get("/fake-decrypt")
-def fake_decrypt():
-    """Show a fake decryption screen then redirect to S3 presigned URL."""
-    redirect_url = request.args.get('url')
-    filename = request.args.get('fname', '')
-    if not redirect_url:
-        abort(400, description="Missing url")
-    return render_template("decrypt.html", redirect_url=redirect_url, filename=filename)
+
 
 
 @app.post("/delete")
