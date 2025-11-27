@@ -3,12 +3,11 @@ import tempfile
 import time
 from uuid import uuid4
 
-from flask import Flask, render_template, request, abort, url_for
+from flask import Flask, render_template, request, abort, url_for, send_from_directory
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from qr_utils import create_qr_code
 from s3_utils import generate_presigned_url, upload_to_s3, delete_from_s3
-
 
 load_dotenv()
 
@@ -21,13 +20,16 @@ AWS_BUCKET = os.getenv('AWS_BUCKET')
 DEFAULT_EXPIRY = int(os.getenv('PRESIGN_EXPIRY_SECONDS', '600'))
 DELETE_TOKEN = os.getenv('DELETE_TOKEN', '')
 
-
 PUBLIC_URL = os.getenv('PUBLIC_URL', 'http://localhost:5000')
 
-os.makedirs('static/qr', exist_ok=True)
-os.makedirs('tmp', exist_ok=True)
-os.makedirs('uploads', exist_ok=True)
+# ----------------------------
+# Railway Writable Directories
+# ----------------------------
+RAILWAY_TMP_DIR = "/mnt/data/tmp"
+RAILWAY_QR_DIR = "/mnt/data/qr"
 
+os.makedirs(RAILWAY_TMP_DIR, exist_ok=True)
+os.makedirs(RAILWAY_QR_DIR, exist_ok=True)
 
 # Simple in-memory rate limit for /decrypt
 REQUEST_WINDOW_SECONDS = 60
@@ -58,13 +60,18 @@ def index():
     return render_template("index.html", default_expiry=DEFAULT_EXPIRY)
 
 
+@app.get("/qr/<path:filename>")
+def serve_qr(filename):
+    """Serve QR images stored in /mnt/data/qr"""
+    return send_from_directory(RAILWAY_QR_DIR, filename)
+
+
 @app.post("/upload")
 def upload():
-    
     file = request.files.get('file')
     expiry = request.form.get('expiry', type=int) or DEFAULT_EXPIRY
-    expiry = max(60, min(604800, expiry))  # 1 minute to 7 days
-    
+    expiry = max(60, min(604800, expiry))
+
     if not file or file.filename == '':
         abort(400, description="Missing file")
     if not AWS_BUCKET:
@@ -74,13 +81,15 @@ def upload():
     if not original_filename:
         abort(400, description="Invalid filename")
 
-    
     suffix = os.path.splitext(original_filename)[1] or ''
-    plaintext_tmp_fd, plaintext_tmp_path = tempfile.mkstemp(dir='tmp', suffix=suffix)
+
+    # Use Railway writable tmp directory
+    plaintext_tmp_fd, plaintext_tmp_path = tempfile.mkstemp(
+        dir=RAILWAY_TMP_DIR, suffix=suffix
+    )
     os.close(plaintext_tmp_fd)
 
     try:
-        
         with file.stream as in_stream, open(plaintext_tmp_path, 'wb') as out:
             while True:
                 chunk = in_stream.read(4 * 1024 * 1024)
@@ -88,10 +97,9 @@ def upload():
                     break
                 out.write(chunk)
 
-        # Step 2: Upload to S3 with unique identifier
         uuid_part = uuid4().hex
         object_key = f"uploads/{uuid_part}/{original_filename}"
-        
+
         upload_to_s3(
             file_path=plaintext_tmp_path,
             bucket=AWS_BUCKET,
@@ -102,7 +110,6 @@ def upload():
             },
         )
 
-        # Step 3: Generate pre-signed URL for direct S3 download
         disposition = f"attachment; filename=\"{original_filename}\""
         presigned_url = generate_presigned_url(
             bucket=AWS_BUCKET,
@@ -114,48 +121,53 @@ def upload():
             },
         )
 
-        # Step 4: QR should contain the S3 presigned URL directly (works over public internet)
         download_link = presigned_url
 
-        # Step 5: Generate QR code image
+        # Save QR into Railway writable folder
         qr_filename = f"{uuid_part}.png"
-        qr_path = os.path.join('static', 'qr', qr_filename)
+        qr_path = os.path.join(RAILWAY_QR_DIR, qr_filename)
         create_qr_code(download_link, output_path=qr_path)
 
-        # Step 6: Return the result page with QR code
+        # Serve QR via `/qr/...`
+        qr_url = url_for("serve_qr", filename=qr_filename)
+
         return render_template(
             "result.html",
-            qr_image_url=url_for('static', filename=f"qr/{qr_filename}"),
+            qr_image_url=qr_url,
             expiry_seconds=expiry,
             decrypt_link=download_link,
             bucket=AWS_BUCKET,
             object_key=object_key,
             filename=original_filename,
         )
-        
+
     finally:
-        # Clean up temporary file
         try:
             os.remove(plaintext_tmp_path)
         except OSError:
             pass
 
 
-
+@app.get("/fake-decrypt")
+def fake_decrypt():
+    redirect_url = request.args.get('url')
+    filename = request.args.get('fname', '')
+    if not redirect_url:
+        abort(400, description="Missing url")
+    return render_template("decrypt.html", redirect_url=redirect_url, filename=filename)
 
 
 @app.post("/delete")
 def delete():
-    """Delete a file from S3 (optional cleanup)"""
     token = request.form.get('token') or request.headers.get('X-Delete-Token')
-    bucket = request.form.get('bucket') or request.json.get('bucket') if request.is_json else request.form.get('bucket')
-    object_key = request.form.get('key') or request.json.get('key') if request.is_json else request.form.get('key')
-    
+    bucket = request.form.get('bucket') or (request.json.get('bucket') if request.is_json else None)
+    object_key = request.form.get('key') or (request.json.get('key') if request.is_json else None)
+
     if not token or token != DELETE_TOKEN:
         abort(401, description="Unauthorized")
     if not bucket or not object_key:
         abort(400, description="Missing bucket or key")
-    
+
     try:
         delete_from_s3(bucket, object_key)
         return {"status": "deleted"}
@@ -164,12 +176,6 @@ def delete():
 
 
 if __name__ == '__main__':
-    # Set debug mode for local development
     app.debug = True
-    print("🔒 Starting Secure File Transfer Server...")
-    print("📱 QR Code functionality is ready!")
-    print("🌐 Server will be available at: http://localhost:5000")
-    print("📋 Make sure your .env file has the required AWS credentials")
-    print("=" * 50)
-    
     app.run(host='0.0.0.0', port=5000, debug=True)
+
