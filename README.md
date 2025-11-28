@@ -1,17 +1,24 @@
 # 🔒 Secure File Transfer with Mobile QR Code Download
 
-A complete Flask application for secure file sharing using AWS S3 and QR codes. Upload files through a web interface, and mobile devices can download them by scanning QR codes - no need for the mobile device to be on the same network!
+The Secure File Transfer App is a production-ready platform that enables users to upload and share files safely using QR codes, presigned URLs, and auto-expiring links.
 
+This project solves the common problem of transferring files quickly without exposing them to long-term storage risks.
+It is minimal, secure, scalable, and cloud-native — making it ideal for both academic evaluation and real-world use.
 ## ✨ Features
 
 - **📁 File Upload**: Drag & drop interface for easy file uploads
-- **🔐 AES-GCM Encryption**: Military-grade encryption before S3 upload
+- 🔐 AWS S3 Secure Storage using presigned URLs
 - **☁️ S3 Integration**: Secure cloud storage with pre-signed URLs
 - **📱 QR Code Generation**: Automatic QR code creation for each file
 - **📲 Mobile Download**: Scan QR codes to download files directly to mobile devices
 - **⏰ Time-Limited Access**: Configurable expiration times for download links
 - **🛡️ Rate Limiting**: Protection against abuse
 - **🎨 Modern UI**: Clean, responsive design
+
+## 🚀 Live Demo
+
+## Secure File Transfer App is now live!
+🔗 Live URL: https://secure-file-transfer.up.railway.app/
 
 ## 🚀 Quick Start
 
@@ -245,3 +252,16 @@ This project is licensed under the MIT License.
 - ✅ Secure encryption
 - ✅ Time-limited access
 - ✅ Easy to use web interface
+
+
+## 📬 Contact
+
+If you want to improve or collaborate, feel free to connect!
+
+## Maila Sai Vamshi
+
+📧 mailasaivamshi02@gmail.com
+
+🔗 GitHub: https://github.com/Ms-vamshi
+
+🔗 LinkedIn: https://www.linkedin.com/in/sai-vamshi23/
