@@ -96,7 +96,7 @@ Open your browser to `http://localhost:5000`
 | `FLASK_SECRET_KEY` | Flask secret key | Yes | - |
 | `DELETE_TOKEN` | Token for file deletion | No | - |
 | `PRESIGN_EXPIRY_SECONDS` | Link expiration time | No | 600 (10 min) |
-| `PUBLIC_URL` | Public URL for mobile access | No | http://localhost:5000 |
+| `PUBLIC_URL` | Public URL for mobile access | Yes | (https://secure-file-transfer.up.railway.app/) |
 
 ### File Limits
 - **Maximum file size**: 2GB
